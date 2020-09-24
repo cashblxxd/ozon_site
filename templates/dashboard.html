@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Dashboard | MP-Scope</title>
+    <meta content="" name="description">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/icon.jpg') }}">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/libs.min.css') }}"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}"/>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.min.css"/>
+</head>
+
+<body>
+    <script src="{{ url_for('static', filename='js/libs.min.js') }}"></script>
+    <script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
+    <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+    {% if tab == "awaiting_packaging" or tab == "awaiting_deliver" %}
+        <script>
+            function toggle(source) {
+                checkboxes = document.getElementsByName('posting_number');
+                for(var i=0, n=checkboxes.length;i<n;i++) {
+                    checkboxes[i].checked = source.checked;
+                }
+            }
+        </script>
+    {% endif %}
+    <style>
+        .zoom {
+            transition: transform .1s;
+        }
+        {% if tab == "awaiting_packaging" or tab == "awaiting_deliver" %}
+            .zoom:hover {
+                transform: scale(5);
+            }
+        {% else %}
+            .zoom:hover {
+                transform: scale(2);
+            }
+        {% endif %}
+        .logo {
+            width: 100px;
+            height: auto;
+        }
+    </style>
+    <header>
+        <div class="container">
+            <div class="top_line clearfix">
+                <div class="search_form">
+                    <form method="post" action="search">
+                        <div class="wrap_input">
+                            <i class="far fa-search"></i>
+                            <input type="search" name="search" placeholder="Поиск по названию">
+                        </div>
+                    </form>
+                </div>
+                <nav class="navbar">
+                    <ul class="icon_panel">
+                        <li>
+                            <a id="help" href="/help">
+                                <i class="far fa-question-circle"></i>
+                            </a>
+                        </li>
+                        <li>
+                            <a id="mail" href="/mail">
+                                <i class="far fa-envelope"></i>
+                            </a>
+                        </li>
+                        <li>
+                            <div class="spec" id="user">
+                                <i class="far fa-user-circle"></i>
+                                <div class="span">
+                                    <div class="user_name">{{ email_show }}</div>
+                                    <div class="user_login">({{ email }})</div>
+                                    <a class="esc" href="/settings">Настройки</a>
+                                    <a class="esc" href="/logout">Выйти</a>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
+    <div class="content_layout">
+        <div class="container">
+            <div class="wrap_full divTable">
+                <form action="" method="post">
+                    <div class="divTableRow">
+                        <div class="sidebar divTableCell">
+                            <ul class="acc_list accordeon">
+                                {% for i in range(accounts|length) %}
+                                    <li {% if i == cur_pos %} class="active" {% endif %}>
+                                        <a class="acc_head accordeon-head" href="#">{{ accounts[i] }}</a>
+                                        <ul class="item_acc accordeon-body">
+                                            <li {% if panel == "dashboard" %} class="active" {% endif %}>
+                                                <a href="/dashboard?u={{ i }}&panel=dashboard">MP-Scope</a>
+                                            </li>
+                                            <li {% if panel == "downloads" %} class="active" {% endif %}>
+                                                <a href="/dashboard?u={{ i }}&panel=downloads">Загрузки</a>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="wrap_content bg divTableCell">
+                            {% if accounts|length == 0 %}
+                                <h2>Аккаунтов пока нет. Зайдите в <a href="/settings">Настройки</a></h2>
+                            {% else %}
+                                <h2>{{ username }}</h2>
+                            {% endif %}
+                            {% if accounts|length > 0 %}
+                                {% if panel == "dashboard" %}
+                                    <div class="wrapper_tab">
+                                        <ul class="list_tabs">
+                                            {% if tab in ["items_all", "visible", "ready_to_supply", "state_failed", "empty_stock", "invisible"] %}
+                                                <li class="tab active" data-tab="1">
+                                                    <a href="/dashboard?tab=items_all">Товары</a>
+                                                </li>
+                                                <li class="tab" data-tab="2">
+                                                    <a href="/dashboard?tab=postings_all">Заказы</a>
+                                                </li>
+                                            {% else %}
+                                                <li class="tab" data-tab="1">
+                                                    <a href="/dashboard?tab=items_all">Товары</a>
+                                                </li>
+                                                <li class="tab active" data-tab="2">
+                                                    <a href="/dashboard?tab=postings_all">Заказы</a>
+                                                </li>
+                                            {% endif %}
+                                        </ul>
+                                        {% if tab in ["items_all", "visible", "ready_to_supply", "state_failed", "empty_stock", "invisible"] %}
+                                            <a class="btn" href="/dashboard?action=update&update=items&pos={{ cur_pos }}">Обновить</a>
+                                        {% else %}
+                                            <a class="btn" href="/dashboard?action=update&update=postings_update&pos={{ cur_pos }}">Обновить</a>
+                                            {% if tab == "awaiting_packaging" %}
+                                                <input class="btn" type="submit" name="action" value="Собрать">
+                                            {% elif tab == "awaiting_deliver" %}
+                                                <a class="btn" href="">Заказать курьера</a>
+                                                <input class="btn" type="submit" name="action" value="Печать маркировок">
+                                                <a class="btn" href="/dashboard?action=update&update=act&pos={{ cur_pos }}">Печать акта и ТТН</a>
+                                            {% endif %}
+                                        {% endif %}
+                                        <div class="wrap_button_order">
+
+                                        </div>
+                                    </div>
+                                    <div class="wrapper_tab_content">
+                                        {% if tab in ["items_all", "visible", "ready_to_supply", "state_failed", "empty_stock", "invisible"] %}
+                                            <div class="wrap_tab tab_item1 active">
+                                                <div class="wrapper_tab_filter">
+                                                    <ul class="list_tabs">
+                                                        <li class="tab {% if tab == "items_all" %} active {% endif %}" data-filtr="all">
+                                                            <a href="/dashboard?tab=items_all">Все товары</a>
+                                                        </li>
+                                                        <li class="tab {% if tab == "visible" %} active {% endif %}" data-filtr="sale">
+                                                            <a href="/dashboard?tab=visible">В продаже</a>
+                                                        </li>
+                                                        <li class="tab {% if tab == "ready_to_supply" %} active {% endif %}" data-filtr="sale">
+                                                            <a href="/dashboard?tab=ready_to_supply">Готовы к продаже</a>
+                                                        </li>
+                                                        <li class="tab {% if tab == "state_failed" %} active {% endif %}" data-filtr="sale">
+                                                            <a href="/dashboard?tab=state_failed">С ошибками</a>
+                                                        </li>
+                                                        <li class="tab {% if tab == "empty_stock" %} active {% endif %}" data-filtr="sale">
+                                                            <a href="/dashboard?tab=empty_stock">Снятые с продажи</a>
+                                                        </li>
+                                                        <li class="tab" data-filtr="archive">В архиве</li>
+                                                    </ul>
+                                                </div>
+                                                <div class="wrap_tab_content_filter">
+                                                    <div class="wrap_table">
+                                                        <div class="divTable">
+                                                            {% if data == "None" %}
+                                                                <h2>Нет данных для отображения</h2>
+                                                            {% else %}
+                                                                <table id="datatable-mpscop" class="display" style="width:100%">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th data-field="offer_id">Артикул</th>
+                                                                            <th data-field="images">Фото</th>
+                                                                            <th data-field="name">Наименование</th>
+                                                                            <th data-field="status">Статус</th>
+                                                                            <th data-field="visibility">Видимость</th>
+                                                                            <th data-field="fbs_stock">На моем складе</th>
+                                                                            <th data-field="ozon_price">Цена Ozon</th>
+                                                                            <th data-field="price">Цена к зачислению</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {% for i in data %}
+                                                                            <tr>
+                                                                                <td>{{ i["offer_id"] }}</td>
+                                                                                <td style="width:250px; height:250px; text-align:center; vertical-align:middle">
+                                                                                    {% for j in i["images"] %}
+                                                                                        <img src="{{ j }}" class="zoom" style="max-height:100%; max-width:100%"/>
+                                                                                    {% endfor %}
+                                                                                </td>
+                                                                                <td>{{ i["name"] }}</td>
+                                                                                <td>{{ d[i["status"]] }}</td>
+                                                                                <td>{{ i["visibility"] }}</td>
+                                                                                <td>{{ i["fbs_stock"] }}</td>
+                                                                                <td>{{ i["ozon_price"] }}</td>
+                                                                                <td>{{ i["price"] }}</td>
+                                                                            </tr>
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                </table>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <div class="wrap_tab tab_item2 active">
+                                                <div class="wrapper_tab_filter">
+                                                    <ul class="list_tabs">
+                                                        <li class="tab {% if tab == "postings_all" %} active {% endif %}" data-filtr="all">
+                                                            <a href="/dashboard?tab=postings_all">ВСЕ</a>
+                                                        </li>
+                                                        <li class="tab {% if tab == "awaiting_packaging" %} active {% endif %}" data-filtr="sale">
+                                                            <a href="/dashboard?tab=awaiting_packaging">Ожидают сборки</a>
+                                                        </li>
+                                                        <li class="tab {% if tab == "awaiting_deliver" %} active {% endif %}" data-filtr="sale">
+                                                            <a href="/dashboard?tab=awaiting_deliver">Ожидают отгрузки</a>
+                                                        </li>
+                                                        <li class="tab {% if tab == "arbitration" %} active {% endif %}" data-filtr="sale">
+                                                            <a href="/dashboard?tab=arbitration">Спорные</a>
+                                                        </li>
+                                                        <li class="tab {% if tab == "delivering" %} active {% endif %}" data-filtr="sale">
+                                                            <a href="/dashboard?tab=delivering">Доставляются</a>
+                                                        </li>
+                                                        <li class="tab {% if tab == "delivered" %} active {% endif %}" data-filtr="sale">
+                                                            <a href="/dashboard?tab=delivered">Доставлены</a>
+                                                        </li>
+                                                        <li class="tab {% if tab == "cancelled" %} active {% endif %}" data-filtr="sale">
+                                                            <a href="/dashboard?tab=cancelled">Отмены</a>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                                <div class="wrap_tab_content_filter">
+                                                    <div class="wrap_table">
+                                                        <div class="divTable">
+                                                            {% if data == "None" %}
+                                                                <h2>Нет данных для отображения</h2>
+                                                            {% else %}
+                                                                <table id="datatable-mpscop" class="display" style="width:100%">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            {% if tab == "awaiting_packaging" or tab == "awaiting_deliver" %}
+                                                                                <th>
+                                                                                    <input type="checkbox" name="select-all" onClick="toggle(this)" value="select-all"/>
+                                                                                </th>
+                                                                            {% endif %}
+                                                                            <th data-field="date">Дата создания</th>
+                                                                            <th data-field="date">Дата отгрузки</th>
+                                                                            <th data-field="order_number">Номер заказа</th>
+                                                                            <th data-field="posting_number">Номер отправления</th>
+                                                                            <th data-field="details">Детали отправления</th>
+                                                                            <th data-field="images">Фото</th>
+                                                                            <th data-field="price">Стоимость</th>
+                                                                            <th data-field="status">Статус</th>
+                                                                            {% if tab == "awaiting_deliver" %}
+                                                                                <th data-field="label">Маркировка</th>
+                                                                            {% endif %}
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {% for i in data %}
+                                                                            <tr>
+                                                                                {% if tab == "awaiting_packaging" or tab == "awaiting_deliver" %}
+                                                                                    <td>
+                                                                                        <input type="checkbox" name="posting_number" value="{{ i["posting_number"] }}"/>
+                                                                                    </td>
+                                                                                {% endif %}
+                                                                                <td>{{ i["date"] }}</td>
+                                                                                <td>{{ i["shipment_date"] }}</td>
+                                                                                <td>{{ i["order_number"] }}</td>
+                                                                                <td>{{ i["posting_number"] }}</td>
+                                                                                <td>{{ i["details"] }}</td>
+                                                                                <td style="width:250px; height:250px; text-align:center; vertical-align:middle">
+                                                                                    {% for j in i["images"] %}
+                                                                                        <img src="{{ j }}" class="zoom" style="max-height:100%; max-width:100%"/>
+                                                                                    {% endfor %}
+                                                                                </td>
+                                                                                <td>{{ i["price"] }}</td>
+                                                                                <td>{{ d[i["status"]] }}</td>
+                                                                                {% if tab == "awaiting_deliver" %}
+                                                                                    <td><a href="/dashboard?action=update&update=get_label&pos={{ cur_pos }}&posting_number={{ i["posting_number"] }}">║▌│</a></td>
+                                                                                {% endif %}
+                                                                            </tr>
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                </table>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                {% elif panel == "downloads" %}
+                                    <div class="wrapper_tab_content">
+                                        <h3>Загрузки</h3>
+                                        <ul>
+                                            {% for i in data %}
+                                                <li>
+                                                    <a href="/dashboard?action=get&get=file&file_id={{ i["file_id"] }}&file_name={{ i["name"] }}">{{ i["name"] }}️</a> <a href="/dashboard?action=delete&delete=file&file_id={{ i["file_id"] }}">🗑️</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+        $(document).ready(function() {
+            $('#datatable-mpscop').DataTable();
+        } );
+    </script>
+    {% if done %}
+        <script src="{{ url_for('static', filename='js/notifications.js') }}" type="text/javascript"></script>
+        <script>
+            window.addEventListener('DOMContentLoaded', function () {
+                window.createNotification({
+                    closeOnClick: true,
+                    displayCloseButton: false,
+                    positionClass: "nfc-bottom-right",
+                    showDuration: 3000,
+                    theme: "{{ theme }}" // "success", "info", "warning", "error", "none"
+                })({
+                    title: "{{ title }}",
+                    message: "{{ message }}"
+                });
+            });
+        </script>
+    {% endif %}
+    <script>
+        window.intercomSettings = {
+            app_id: "q5s6lmcp",
+            name: "{{ email_show }}", // Full name
+            email: "{{ email }}", // Email address
+            created_at: "1312182000" // Signup date as a Unix timestamp
+        };
+    </script>
+
+    <script>
+        // We pre-filled your app ID in the widget URL: 'https://widget.intercom.io/widget/q5s6lmcp'
+        (function(){var w=window;var ic=w.Intercom;if(typeof ic==="function"){ic('reattach_activator');ic('update',w.intercomSettings);}else{var d=document;var i=function(){i.c(arguments);};i.q=[];i.c=function(args){i.q.push(args);};w.Intercom=i;var l=function(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://widget.intercom.io/widget/q5s6lmcp';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);};if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}}})();
+    </script>
+</body>
+
+</html>
